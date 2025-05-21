@@ -1,0 +1,28 @@
+{
+    "dev_offline": false,
+    "host": {
+        "url": "http://27.106.106.102"
+    },
+    "camera": {
+        "enabled": true,
+        "url": "http://192.168.43.165:81/stream"
+    },
+    "asr": {
+        "endpoint": ":8000/asr/"
+    },
+    "tts": {
+        "endpoint": ":8000/tts/"
+    },
+    "chat": {
+        "endpoint": ":8000/chat/"
+    },
+    "ocr": {
+        "endpoint": ":8866/ocr"
+    },
+    "caption": {
+        "endpoint": ":8000/caption/caption"
+    },
+    "detect": {
+        "endpoint": ":8865/detect_objects/"
+    }
+}

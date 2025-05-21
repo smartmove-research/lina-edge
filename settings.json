@@ -1,0 +1,33 @@
+{
+    "dev_offline": false,
+    "user_id": "123",
+    "host": {
+        "url": "http://27.106.106.102",
+        "url_test": "https://vigilant-space-yodel-jwrjvw4pr4pc4j-8000.app.github.dev"
+    },
+    "camera": {
+        "enabled": true,
+        "url": "http://192.168.43.165:81/stream"
+    },
+    "asr": {
+        "endpoint": ":8000/asr/",
+        "endpoint_test": "/asr/"
+    },
+    "tts": {
+        "endpoint": ":8000/tts/",
+        "endpoint_test": "/tts/"
+    },
+    "chat": {
+        "endpoint": ":8000/chat/"
+    },
+    "ocr": {
+        "endpoint": ":8866/ocr"
+    },
+    "caption": {
+        "endpoint": ":8000/caption/caption",
+        "endpoint_test": "/caption/caption"
+    },
+    "detect": {
+        "endpoint": ":8865/detect_objects/"
+    }
+}
