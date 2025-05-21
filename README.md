@@ -34,7 +34,7 @@ cd lina
 ```
 
 ### 2. Set Up Raspberry Pi (Edge Node)
-- Flash `openEuler` or Raspbian
+- Flash `openEuler` or Raspbian 
 - Install dependencies: Python 3.9+, `ffmpeg`, `pulseaudio`, `libasound2-dev`
 - Enable Bluetooth and Wi-Fi
 - Pair your ESP32-CAM and Bluetooth headset
@@ -53,17 +53,17 @@ cd lina
 ### 4. Run the Edge Client
 ```bash
 cd edge_client
-python3 main.py
+python3 assistant.py
 ```
 
 ## Citation
-If you use LINA in academic work, please cite:
+**[TBA]** If you use LINA in academic work, please cite:
 ```bibtex
-@inproceedings{nyemb2024lina,
+@inproceedings{...,
   title={LINA: A Cloud-Accelerated AI Assistant for the Visually Impaired with Event-Driven Edge Perception},
-  author={Nyemb Ndjem Eone, Andre Kevin and Minkoh Som, Lyne and Njimeyup, Harold and Gwade, Steve and Maka Maka, Ebenezer},
-  booktitle={Deep Learning Indaba},
-  year={2024}
+  author={..},
+  booktitle={...},
+  year={2025}
 }
 ```
 
