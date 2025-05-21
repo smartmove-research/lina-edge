@@ -21,7 +21,7 @@
         "endpoint": ":8000/chat/"
     },
     "ocr": {
-        "endpoint": ":8866/ocr"
+        "endpoint": ":8866/ocr/"
     },
     "caption": {
         "endpoint": ":8000/caption/caption",

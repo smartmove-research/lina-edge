@@ -1,154 +1,203 @@
-# voice/voice_module.py
-
 import asyncio
+import logging
+import time
 from uuid import uuid4
-from typing import Any
+from typing import Any, List
 
 from core.event_bus import EventBus
 from events.events import UserCommand
 from audio.audio_module import AudioModule
-from vision.vision_module import VisionModule
+from vision.vision_module import VisionModule, ocr_image
 from voice.stt_module import STTModule
 from voice.command_parser import CommandParser
-import requests
 
-import logging
-import time
-
-from config import Config
+# Configure logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 class VoiceModule:
     """
-    Listens for any speech (via VAD), transcribes it, grabs the current frame,
+    Listens for speech (via VAD), transcribes it, grabs the current frame,
     parses the intent, and emits a UserCommand event.
     """
-    def __init__(self,
-                 bus: EventBus,
-                 audio: AudioModule,
-                 vision: VisionModule,
-                 stt: STTModule,
-                 parser: CommandParser,
-                 silence_duration: float = 2.0,
-                 config = Config.get_config()):
-        self.bus              = bus
-        self.audio            = audio
-        self.vision           = vision
-        self.stt              = stt
-        self.parser           = parser
+    def __init__(
+        self,
+        bus: EventBus,
+        audio: AudioModule,
+        vision: VisionModule,
+        stt: STTModule,
+        parser: CommandParser,
+        silence_duration: float = 2.0,
+    ):
+        self.bus = bus
+        self.audio = audio
+        self.vision = vision
+        self.stt = stt
+        self.parser = parser
         self.silence_duration = silence_duration
-        self.config           = config
-        self._task            = None
+        self._task: asyncio.Task = None
 
     def start(self):
         if self._task is None:
-            #self.audio.add_audio_to_queue("sounds/waterdropletechoed.wav")
-            self.audio.add_audio_to_queue("sounds/res_part1.wav")
-            time.sleep(1)
-            self.audio.add_audio_to_queue("sounds/res_part2.wav")
+            try:
+                # preload some sounds if needed
+                self.audio.add_audio_to_queue("sounds/waterdropletechoed.wav")
+            except Exception as e:
+                logger.error("Failed to preload audio: %s", e, exc_info=True)
+
             self._task = asyncio.create_task(self._run())
-            print("VoiceModule started")
+            logger.info("VoiceModule started")
 
     def stop(self):
         if self._task:
             self._task.cancel()
             self._task = None
+            logger.info("VoiceModule stopped")
 
     async def _run(self):
-        print("_run")
-        try:
-            while True:
-                # 1) wait for user to speak (non-blocking)
-                logging.info("Waiting for record")
-                frame = self.vision.latest_frame
-                # Save the frame locally
-                frame_path = self.vision.save_frame(frame)
-                print("im_path", frame_path)
-                pid = self.audio.schedule("sounds/waterdropletechoed.wav", priority=0, loop=True)
-                audio_path = await self.audio.record(silence_duration=self.silence_duration)
-                logging.info(f"Audio path [{audio_path}]")
-                #continue
-                #audio_path = "/home/userlina/lina/sounds/recording_speech.wav"
-                frame = self.vision.latest_frame
-                # Save the frame locally
-                frame_path = self.vision.save_frame(frame)
-                logging.info("Processing record")
-                self.audio.stop_sound(pid)
-                logging.info(f"Got record: {audio_path}")
-                # 2) transcribe
-                logging.info("Sending to transcription...")
-                print(self.config["dev_offline"])
-                if self.config["dev_offline"]:
-                    userinput = "Text DEBUG"
-                else:
-                    logging.info("Trying to get transcription online...")
-                    userinput = await self.stt.transcribe(audio_path)
-                    #userinput = " Okay, good morning everyone, my name is Kerry, I'm from Admove.  I am working on a new project all the way around the apartment."
-                print(f"[VoiceModule] Transcribed: {userinput!r}")
-                if len(userinput):
-                    # 3) capture current frame
-                    
-                    # Get captions
-                    frame_caption = await self.vision.caption(frame_path)
-                    #frame_caption = "A woman lying on a bed"
-                    print("Got caption :", frame_caption)
-                    # Get detection
-                    
-                    #frame_detection = await self.vision.detect_objects(frame_path)
-                    frame_detection = "Object detection service currently unavailable"
-                    print("Got objects :", frame_detection)
+        while True:
+            try:
+                logger.info("Waiting for user speech...")
+                # record audio
+                try:
+                    pid = self.audio.schedule("sounds/waterdropletechoed.wav", priority=0, loop=True)
+                except Exception as e:
+                    logger.warning("Failed to play prompt sound: %s", e, exc_info=True)
+                    pid = None
 
-                    # prepare prompt
-                    prompt = self.prepare_prompt(userinput, frame_caption, frame_detection)
-                    logging.info(f"PROMPT: {prompt}")
+                try:
+                    audio_path = await asyncio.wait_for(
+                        self.audio.record(silence_duration=self.silence_duration),
+                        timeout=self.silence_duration + 5
+                    )
+                    logger.info("Recorded audio: %s", audio_path)
+                except Exception as e:
+                    logger.error("Audio recording failed: %s", e, exc_info=True)
+                    audio_path = None
 
-                    # get chat_response
-                    reply = await self.stt.chat(prompt, user_id=self.config["user_id"])
-                    #reply = "   I could see a woman lying on a white bed. Is it your wife?"
-                    print("Response:", reply)
+                # stop prompt sound
+                if pid is not None:
+                    try:
+                        self.audio.stop_sound(pid)
+                    except Exception:
+                        pass
 
-                    reply_audio_path = await self.stt.synthesize_speech(reply)
-                    print(reply_audio_path)
-                    self.audio.add_audio_to_queue(reply_audio_path)
-                    #command, params = await self.parser.parse(text)
-                    #print(f"[VoiceModule] Parsed command={command}, params={params}")
+                # capture frame
+                frame_path = None
+                try:
+                    frame = self.vision.latest_frame
+                    frame_path = self.vision.save_frame(frame)
+                    logger.info("Saved frame: %s", frame_path)
+                except Exception as e:
+                    logger.error("Frame capture failed: %s", e, exc_info=True)
 
-                    # 5) emit the high-level event
-                    #evt = UserCommand(text=text, command=command, params=params, frame=frame)
-                    #self.bus.emit(evt)
+                # transcription
+                userinput = ""
+                if audio_path:
+                    try:
+                        if self.stt:
+                            userinput = await self.stt.transcribe(audio_path)
+                    except Exception as e:
+                        logger.error("Transcription failed: %s", e, exc_info=True)
+                logger.info("Transcribed text: %r", userinput)
 
-                # small pause before listening again
-                print("Looping... in 10s")
+                if not userinput:
+                    logger.info("No user input; skipping processing")
+                    await asyncio.sleep(0.5)
+                    continue
+
+                # vision processing
+                caption = ""
+                detection = ""
+                ocr_text = ""
+                try:
+                    caption = await self.vision.caption(frame_path)
+                except Exception as e:
+                    logger.warning("Captioning failed: %s", e, exc_info=True)
+                try:
+                    detection = await self.vision.detect_objects(frame_path)
+                except Exception as e:
+                    logger.warning("Object detection failed: %s", e, exc_info=True)
+                try:
+                    ocr_result = await ocr_image(frame_path)
+                    ocr_text = ocr_result.get("text", "")
+                except Exception as e:
+                    logger.warning("OCR failed: %s", e, exc_info=True)
+
+                # prepare prompt
+                prompt = self.prepare_prompt(
+                    userinput, caption, detection, ocr_text
+                )
+                logger.info("Generated prompt for LLM: %s", prompt)
+
+                # chat response
+                reply = ""
+                try:
+                    reply = await self.stt.chat(prompt, user_id=self.stt.config.get("user_id", ""))
+                except Exception as e:
+                    logger.error("Chat request failed: %s", e, exc_info=True)
+
+                # speak reply
+                try:
+                    reply_audio = await self.stt.synthesize_speech(reply)
+                    self.audio.add_audio_to_queue(str(reply_audio))
+                except Exception as e:
+                    logger.error("Speech synthesis failed: %s", e, exc_info=True)
+
+                # emit event
+                try:
+                    cmd, params = await self.parser.parse(reply)
+                    evt = UserCommand(text=reply, command=cmd, params=params)
+                    self.bus.emit(evt)
+                except Exception as e:
+                    logger.warning("Command parsing or emit failed: %s", e, exc_info=True)
+
                 await asyncio.sleep(0.1)
-                
 
-        except asyncio.CancelledError as e:
-            print("e")
-            pass
-    
-    def prepare_prompt(self, userinput: str, caption: str, objects: list) -> str:
+            except asyncio.CancelledError:
+                logger.info("VoiceModule cancelled")
+                break
+            except Exception as e:
+                logger.error("Unexpected error in VoiceModule loop: %s", e, exc_info=True)
+                await asyncio.sleep(1)
+
+    def prepare_prompt(
+        self,
+        userinput: str,
+        caption: str,
+        objects: Any,
+        text: str
+    ) -> str:
         """
-        Builds a user‐role message content for Llama 3.2 by combining user input, image caption, and detected objects.
-
-        Args:
-            userinput: The original prompt from the user.
-            caption: The generated image caption.
-            objects: A list of detected object names.
-
-        Returns:
-            A formatted string to be used as the "content" of a user message.
+        Builds a user-role message combining speech and vision context.
         """
-        # Convert objects list to JSON‐style string for clarity
-        logging.info("preparing prompt")
-        prompt = (
-            f"{userinput}\n\n"
-            f"Caption: \"{caption}\"\n"
-            f"Detected objects: {objects}\n\n"
-            "Using the image context above, compose a response referencing the caption and objects where relevant. "
-            "Be clear and concise."
-        )
+        try:
+            return (
+                f"{userinput}\n\n"
+                f"Caption: \"{caption}\"\n"
+                f"Detected objects: {objects}\n"
+                f"Detected text: {text or 'none'}\n"
+                "Using this context, respond clearly and concisely."
+            )
+        except Exception as e:
+            logger.error("prepare_prompt failed: %s", e, exc_info=True)
+            return userinput
 
-        return prompt
-    def prompt_llm(self, prompt):
-        user_id = config.get("user_id", "test")
-        # TODO
+    def prompt_llm(self, prompt: str):
+        # placeholder for synchronous LLM calls
         pass
+
+if __name__ == "__main__":
+    # minimal demo
+    logging.basicConfig(level=logging.INFO)
+    bus = EventBus()
+    audio = AudioModule()
+    vision = VisionModule(bus)
+    stt = STTModule()
+    parser = CommandParser()
+    vm = VoiceModule(bus, audio, vision, stt, parser)
+    vm.start()
+    try:
+        asyncio.get_event_loop().run_forever()
+    except KeyboardInterrupt:
+        vm.stop()

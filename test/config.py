@@ -1,7 +1,5 @@
 import json
-from config import Config
 
-config = Config.get_config()
 class Config:
     _config = None
     
