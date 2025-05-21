@@ -5,8 +5,8 @@
     },
     "camera": {
         "enabled": true,
-        "url_": "http://192.168.43.165:81/stream",
-        "url": "http://169.254.12.172:4747"
+        "url": "http://192.168.43.165:81/stream",
+        "url_": "http://169.254.12.172:4747"
     },
     "asr": {
         "endpoint": ":8000/asr/"

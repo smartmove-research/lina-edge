@@ -1,8 +1,8 @@
 {
     "dev_offline": false,
     "host": {
-        "url_": "http://27.106.106.102",
-        "url": "http://localhost"
+        "url": "http://27.106.106.102",
+        "url_": "http://localhost"
     },
     "camera": {
         "enabled": true,
