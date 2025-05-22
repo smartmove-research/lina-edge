@@ -110,6 +110,10 @@ class STTModule:
             logger.info("TTS audio saved to %s", out_path)
         except Exception as e:
             logger.error("synthesize_speech failed: %s", e, exc_info=True)
+            try:
+                out_path = Path("sounds") / "tts_error.mp3"
+            except Exception as e:
+                logger.error("Failed to assign fallback path")
         return out_path
 
 if __name__ == "__main__":

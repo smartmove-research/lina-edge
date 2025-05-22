@@ -10,7 +10,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Configuration
-TTS_URL = "http://127.0.0.1:8000/tts/"
+TTS_URL = "http://27.106.106.102:8000/tts/"
 TIMEOUT = 10.0         # seconds per request
 MAX_RETRIES = 3
 BACKOFF_FACTOR = 1.0    # initial backoff in seconds
@@ -64,12 +64,12 @@ async def synthesize_speech(text: str, *, output_dir: str = "tmp") -> Path:
     except Exception as e:
         logger.error("Failed to synthesize speech: %s", e, exc_info=True)
         # Return a dummy Path so caller never sees None
-        return Path(output_dir) / "tts_error.mp3"
+        return "sounds/tts_error.mp3"
 
 async def main():
     # configure logging to console for testing
     logging.basicConfig(level=logging.DEBUG)
-    path = await synthesize_speech("Greetings Master Ryan! I hope you are good today")
+    path = await synthesize_speech("I encountered some issues. Can you try again please ?")
     print(f"Audio saved to {path}")
 
 if __name__ == "__main__":
