@@ -119,8 +119,7 @@ class VoiceModule:
                 except Exception as e:
                     logger.warning("Object detection failed: %s", e, exc_info=True)
                 try:
-                    ocr_result = await ocr_image(frame_path)
-                    ocr_text = ocr_result.get("text", "")
+                    ocr_text = await self.vision.detect_text(frame_path)
                 except Exception as e:
                     logger.warning("OCR failed: %s", e, exc_info=True)
 
