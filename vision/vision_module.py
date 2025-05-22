@@ -121,7 +121,7 @@ class VisionModule:
                     logger.info("Scene change detected -> emitting event")
                     self.bus.emit(InterestingFrame(frame=frame, metadata={"type": "scene"}))
 
-                if self._detect_text(frame):
+                if self.detect_text(frame):
                     logger.debug("Text detected -> emitting text event")
                     self.bus.emit(InterestingFrame(frame=frame, metadata={"type": "text"}))
                 else:
@@ -154,6 +154,9 @@ class VisionModule:
         except Exception as e:
             logger.error("Error in scene detection: %s", e, exc_info=True)
         return False
+    
+    def _detect_text(self, frame_path: str) -> str:
+        return self.detect_text(frame_path)
 
     def detect_text(self, frame_path: str) -> str:
         NO_TEXT_OR_FAILED = ""
